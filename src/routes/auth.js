@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../models/database');
+const { getDb, saveDb } = require('../models/database');
 const { generateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -13,6 +13,7 @@ router.post('/login', (req, res) => {
     return res.status(400).json({ error: 'Email and password required' });
   }
 
+  const db = getDb();
   const table = role === 'partner' ? 'partners' : 'clients';
   const user = db.prepare(`SELECT * FROM ${table} WHERE email = ?`).get(email);
 
@@ -46,14 +47,16 @@ router.post('/register-partner', (req, res) => {
     return res.status(400).json({ error: 'All fields required' });
   }
   try {
+    const db = getDb();
     const id = uuidv4();
     const hash = bcrypt.hashSync(password, 10);
     db.prepare(`INSERT INTO partners (id, company_name, email, password_hash, domain) VALUES (?, ?, ?, ?, ?)`)
       .run(id, company_name, email, hash, domain);
+    saveDb();
     const token = generateToken({ id, email, role: 'partner', company: company_name });
     res.status(201).json({ token, user: { id, email, role: 'partner', company_name } });
   } catch (err) {
-    if (err.message.includes('UNIQUE')) {
+    if (err.message && err.message.includes('UNIQUE')) {
       return res.status(409).json({ error: 'Email already registered' });
     }
     res.status(500).json({ error: 'Registration failed' });

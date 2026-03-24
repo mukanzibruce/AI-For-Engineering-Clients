@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../models/database');
+const { getDb, saveDb } = require('../models/database');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.use(requireRole('partner'));
 
 // GET /api/partners/dashboard
 router.get('/dashboard', (req, res) => {
+  const db = getDb();
   const partnerId = req.user.id;
   const partner = db.prepare('SELECT * FROM partners WHERE id = ?').get(partnerId);
   const clients = db.prepare('SELECT * FROM clients WHERE partner_id = ?').all(partnerId);
@@ -56,13 +57,14 @@ router.get('/dashboard', (req, res) => {
   });
 });
 
-// POST /api/partners/clients — onboard a new client
+// POST /api/partners/clients
 router.post('/clients', (req, res) => {
   const { company_name, contact_name, email, password, industry, subscription_tier } = req.body;
   if (!company_name || !contact_name || !email || !password) {
     return res.status(400).json({ error: 'Required fields: company_name, contact_name, email, password' });
   }
   try {
+    const db = getDb();
     const id = uuidv4();
     const hash = bcrypt.hashSync(password, 10);
     const tier = subscription_tier || 'standard';
@@ -72,16 +74,18 @@ router.post('/clients', (req, res) => {
 
     db.prepare(`INSERT INTO notifications (id, target_type, target_id, title, message) VALUES (?, ?, ?, ?, ?)`)
       .run(uuidv4(), 'partner', req.user.id, 'Client Onboarded', `${company_name} added on ${tier} tier.`);
+    saveDb();
 
     res.status(201).json({ id, company_name, contact_name, email, subscription_tier: tier });
   } catch (err) {
-    if (err.message.includes('UNIQUE')) return res.status(409).json({ error: 'Client email already exists' });
+    if (err.message && err.message.includes('UNIQUE')) return res.status(409).json({ error: 'Client email already exists' });
     res.status(500).json({ error: 'Failed to create client' });
   }
 });
 
 // PATCH /api/partners/clients/:id
 router.patch('/clients/:id', (req, res) => {
+  const db = getDb();
   const client = db.prepare('SELECT * FROM clients WHERE id = ? AND partner_id = ?').get(req.params.id, req.user.id);
   if (!client) return res.status(404).json({ error: 'Client not found' });
 
@@ -89,12 +93,14 @@ router.patch('/clients/:id', (req, res) => {
   if (subscription_tier) db.prepare('UPDATE clients SET subscription_tier = ? WHERE id = ?').run(subscription_tier, client.id);
   if (subscription_status) db.prepare('UPDATE clients SET subscription_status = ? WHERE id = ?').run(subscription_status, client.id);
   if (query_limit) db.prepare('UPDATE clients SET query_limit = ? WHERE id = ?').run(query_limit, client.id);
+  saveDb();
 
   res.json({ success: true });
 });
 
 // GET /api/partners/analytics
 router.get('/analytics', (req, res) => {
+  const db = getDb();
   const clients = db.prepare('SELECT id FROM clients WHERE partner_id = ?').all(req.user.id);
   if (clients.length === 0) return res.json({ module_usage: [], daily_queries: [], tier_distribution: [] });
 

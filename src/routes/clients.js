@@ -1,6 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const db = require('../models/database');
+const { getDb, saveDb } = require('../models/database');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runAnalysis } = require('../services/aiEngine');
 
@@ -10,6 +10,7 @@ router.use(requireRole('client'));
 
 // GET /api/clients/dashboard
 router.get('/dashboard', (req, res) => {
+  const db = getDb();
   const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(req.user.id);
   if (!client) return res.status(404).json({ error: 'Client not found' });
 
@@ -41,8 +42,9 @@ router.get('/dashboard', (req, res) => {
   });
 });
 
-// GET /api/clients/modules — available AI modules for this tier
+// GET /api/clients/modules
 router.get('/modules', (req, res) => {
+  const db = getDb();
   const client = db.prepare('SELECT subscription_tier FROM clients WHERE id = ?').get(req.user.id);
   const tierRank = { standard: 1, professional: 2, enterprise: 3 };
   const rank = tierRank[client.subscription_tier] || 1;
@@ -56,11 +58,12 @@ router.get('/modules', (req, res) => {
   res.json({ modules: available, current_tier: client.subscription_tier });
 });
 
-// POST /api/clients/query — run an AI analysis
+// POST /api/clients/query
 router.post('/query', (req, res) => {
   const { module_slug, input_data } = req.body;
   if (!module_slug) return res.status(400).json({ error: 'module_slug required' });
 
+  const db = getDb();
   const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(req.user.id);
   if (client.subscription_status !== 'active') {
     return res.status(403).json({ error: 'Subscription is not active' });
@@ -86,6 +89,7 @@ router.post('/query', (req, res) => {
   );
 
   db.prepare('UPDATE clients SET monthly_queries = monthly_queries + 1 WHERE id = ?').run(req.user.id);
+  saveDb();
 
   res.json({
     query_id: queryId,
@@ -98,8 +102,9 @@ router.post('/query', (req, res) => {
   });
 });
 
-// GET /api/clients/queries — query history
+// GET /api/clients/queries
 router.get('/queries', (req, res) => {
+  const db = getDb();
   const { page = 1, limit = 20 } = req.query;
   const offset = (page - 1) * limit;
 
@@ -114,6 +119,7 @@ router.get('/queries', (req, res) => {
 
 // GET /api/clients/queries/:id
 router.get('/queries/:id', (req, res) => {
+  const db = getDb();
   const query = db.prepare(`SELECT q.*, m.name as module_name, m.category, m.slug as module_slug
     FROM queries q JOIN ai_modules m ON q.module_id = m.id
     WHERE q.id = ? AND q.client_id = ?`).get(req.params.id, req.user.id);
