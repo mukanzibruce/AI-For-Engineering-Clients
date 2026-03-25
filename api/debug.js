@@ -1,47 +1,24 @@
 module.exports = async (req, res) => {
   try {
-    const fs = require('fs');
-    const path = require('path');
+    // Step 1: Try loading the database
+    const { initDatabase, getDb } = require('../src/models/database');
+    await initDatabase();
+    const db = getDb();
+    const count = db.prepare('SELECT COUNT(*) as c FROM ai_modules').get();
 
-    // Check what files we can see
-    const info = {
-      cwd: process.cwd(),
-      dirname: __dirname,
-      nodeVersion: process.version,
-    };
+    // Step 2: Try loading Express app
+    const app = require('./index');
 
-    // Check WASM candidates
-    const candidates = [
-      path.join(__dirname, 'sql-wasm.wasm'),
-      path.join(__dirname, '../api/sql-wasm.wasm'),
-      path.join(__dirname, '../node_modules/sql.js/dist/sql-wasm.wasm'),
-      path.resolve('api/sql-wasm.wasm'),
-      path.resolve('node_modules/sql.js/dist/sql-wasm.wasm'),
-    ];
-
-    info.wasm_candidates = candidates.map(p => ({
-      path: p,
-      exists: fs.existsSync(p),
-    }));
-
-    // Try listing __dirname
-    try {
-      info.dirname_files = fs.readdirSync(__dirname);
-    } catch (e) {
-      info.dirname_files_error = e.message;
-    }
-
-    // Try to load sql.js
-    try {
-      const sqlJsPath = require.resolve('sql.js');
-      info.sqljs_path = sqlJsPath;
-      info.sqljs_dir = fs.readdirSync(path.dirname(sqlJsPath)).filter(f => f.includes('wasm'));
-    } catch (e) {
-      info.sqljs_error = e.message;
-    }
-
-    res.status(200).json(info);
+    res.status(200).json({
+      db_ok: true,
+      modules: count.c,
+      app_type: typeof app,
+      app_keys: Object.keys(app || {}),
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message, stack: e.stack });
+    res.status(500).json({
+      error: e.message,
+      stack: e.stack.split('\n').slice(0, 10),
+    });
   }
 };
