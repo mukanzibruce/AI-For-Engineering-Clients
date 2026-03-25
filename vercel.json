@@ -1,21 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "src/**",
-          "api/sql-wasm.wasm"
-        ]
-      }
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "{src/**/*.js,api/sql-wasm.wasm,node_modules/sql.js/dist/sql-wasm.wasm}"
     }
-  ],
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/css/(.*)", "dest": "/public/css/$1" },
