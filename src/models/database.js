@@ -5,7 +5,12 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 // Locate the WASM file for sql.js (required for Vercel serverless)
-const WASM_PATH = path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+// Try bundled copy first (for Vercel), then node_modules
+const WASM_CANDIDATES = [
+  path.join(__dirname, '../../api/sql-wasm.wasm'),
+  path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm'),
+];
+const WASM_PATH = WASM_CANDIDATES.find(p => fs.existsSync(p));
 
 // ── Compatibility wrapper ───────────────────────────────────────────────
 // sql.js returns rows as arrays; we wrap it to return objects like better-sqlite3

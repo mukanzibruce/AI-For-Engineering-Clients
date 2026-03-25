@@ -7,7 +7,7 @@
       "config": {
         "includeFiles": [
           "src/**",
-          "node_modules/sql.js/dist/sql-wasm.wasm"
+          "api/sql-wasm.wasm"
         ]
       }
     },
