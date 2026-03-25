@@ -1,5 +1,6 @@
 const express = require('express');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const uuidv4 = () => crypto.randomUUID();
 const { getDb, saveDb } = require('../models/database');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { runAnalysis } = require('../services/aiEngine');

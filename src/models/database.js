@@ -2,7 +2,8 @@ const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const uuidv4 = () => crypto.randomUUID();
 
 // Locate the WASM file for sql.js (required for Vercel serverless)
 // Multiple candidate paths for different environments:
