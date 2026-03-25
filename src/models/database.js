@@ -4,6 +4,9 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
+// Locate the WASM file for sql.js (required for Vercel serverless)
+const WASM_PATH = path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+
 // ── Compatibility wrapper ───────────────────────────────────────────────
 // sql.js returns rows as arrays; we wrap it to return objects like better-sqlite3
 
@@ -61,7 +64,8 @@ function wrapDb(rawDb) {
 // ── Initialize ──────────────────────────────────────────────────────────
 
 async function initDatabase() {
-  const SQL = await initSqlJs();
+  const wasmBinary = fs.readFileSync(WASM_PATH);
+  const SQL = await initSqlJs({ wasmBinary });
 
   const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/cynea.db');
 
