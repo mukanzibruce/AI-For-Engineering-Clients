@@ -1,11 +1,12 @@
 {
   "version": 2,
   "functions": {
-    "api/index.js": {
+    "api/**/*.js": {
       "includeFiles": "{src/**/*.js,api/sql-wasm.wasm,node_modules/sql.js/dist/sql-wasm.wasm}"
     }
   },
   "routes": [
+    { "src": "/api/debug", "dest": "/api/debug.js" },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/css/(.*)", "dest": "/public/css/$1" },
     { "src": "/js/(.*)", "dest": "/public/js/$1" },
