@@ -1,0 +1,22 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = [
+    "netlify/functions/sql-wasm.wasm",
+    "api/sql-wasm.wasm"
+  ]
+
+# Redirect all /api/* requests to the Netlify function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/api/:splat"
+  status = 200
+
+# SPA fallback — serve index.html for any non-file route
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

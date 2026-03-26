@@ -5,14 +5,13 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const uuidv4 = () => crypto.randomUUID();
 
-// Locate the WASM file for sql.js (required for Vercel serverless)
-// Multiple candidate paths for different environments:
-//   1. Bundled copy next to the serverless entry point (api/)
-//   2. node_modules (standard location)
-//   3. Relative to this file for local dev
+// Locate the WASM file for sql.js (required for serverless platforms)
+// Candidate paths for Vercel, Netlify, and local dev:
 const WASM_CANDIDATES = [
   path.join(__dirname, '../../api/sql-wasm.wasm'),
+  path.join(__dirname, '../../netlify/functions/sql-wasm.wasm'),
   path.resolve('api/sql-wasm.wasm'),
+  path.resolve('netlify/functions/sql-wasm.wasm'),
   path.join(path.dirname(require.resolve('sql.js')), 'sql-wasm.wasm'),
   path.resolve('node_modules/sql.js/dist/sql-wasm.wasm'),
 ];
