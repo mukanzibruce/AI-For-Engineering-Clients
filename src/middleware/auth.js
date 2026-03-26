@@ -1,8 +1,31 @@
 const jwt = require('jsonwebtoken');
 const SECRET = process.env.JWT_SECRET || 'cynea-platform-secret';
 
-function generateToken(payload) {
-  return jwt.sign(payload, SECRET, { expiresIn: '24h' });
+function generateToken(payload, rememberMe = false) {
+  return jwt.sign(payload, SECRET, { expiresIn: rememberMe ? '7d' : '24h' });
+}
+
+function decodeTokenUnsafe(token) {
+  try {
+    return jwt.decode(token);
+  } catch {
+    return null;
+  }
+}
+
+function verifyTokenAllowExpired(token) {
+  try {
+    return jwt.verify(token, SECRET);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      const decoded = jwt.decode(token);
+      if (decoded) {
+        const expiredAgo = Date.now() / 1000 - decoded.exp;
+        if (expiredAgo < 3600) return decoded; // allow refresh within 1 hour of expiry
+      }
+    }
+    return null;
+  }
 }
 
 function authMiddleware(req, res, next) {
@@ -27,4 +50,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { generateToken, authMiddleware, requireRole };
+module.exports = { generateToken, decodeTokenUnsafe, verifyTokenAllowExpired, authMiddleware, requireRole };

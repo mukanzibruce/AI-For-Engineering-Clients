@@ -118,4 +118,22 @@ router.get('/analytics', (req, res) => {
   res.json({ module_usage: moduleUsage, tier_distribution: tierDist });
 });
 
+// PATCH /api/partners/notifications/:id/read
+router.patch('/notifications/:id/read', (req, res) => {
+  const db = getDb();
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND target_type = ? AND target_id = ?')
+    .run(req.params.id, 'partner', req.user.id);
+  saveDb();
+  res.json({ success: true });
+});
+
+// POST /api/partners/notifications/read-all
+router.post('/notifications/read-all', (req, res) => {
+  const db = getDb();
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE target_type = ? AND target_id = ?')
+    .run('partner', req.user.id);
+  saveDb();
+  res.json({ success: true });
+});
+
 module.exports = router;

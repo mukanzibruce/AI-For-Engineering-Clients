@@ -28,9 +28,6 @@ async function start() {
     console.log(`\n  ╔══════════════════════════════════════════════╗`);
     console.log(`  ║   CYNEA AI Engineering Intelligence Platform  ║`);
     console.log(`  ║   Running on http://localhost:${PORT}             ║`);
-    console.log(`  ╠══════════════════════════════════════════════╣`);
-    console.log(`  ║   Demo Partner: partner@demo.com / demo1234  ║`);
-    console.log(`  ║   Demo Client:  client@demo.com  / demo1234  ║`);
     console.log(`  ╚══════════════════════════════════════════════╝\n`);
   });
 }

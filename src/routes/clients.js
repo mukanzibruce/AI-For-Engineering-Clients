@@ -90,6 +90,22 @@ router.post('/query', (req, res) => {
   );
 
   db.prepare('UPDATE clients SET monthly_queries = monthly_queries + 1 WHERE id = ?').run(req.user.id);
+
+  // Generate notifications for usage milestones
+  const newCount = client.monthly_queries + 1;
+  const usagePct = Math.round((newCount / client.query_limit) * 100);
+  if (usagePct >= 80 && Math.round((client.monthly_queries / client.query_limit) * 100) < 80) {
+    db.prepare(`INSERT INTO notifications (id, target_type, target_id, title, message) VALUES (?, ?, ?, ?, ?)`)
+      .run(uuidv4(), 'client', req.user.id, 'Usage Alert', `You've used ${usagePct}% of your monthly query limit (${newCount}/${client.query_limit}).`);
+    // Also notify partner
+    db.prepare(`INSERT INTO notifications (id, target_type, target_id, title, message) VALUES (?, ?, ?, ?, ?)`)
+      .run(uuidv4(), 'partner', client.partner_id, 'Client Usage Alert', `${client.company_name} has reached ${usagePct}% of their query limit.`);
+  }
+  if (usagePct >= 95 && Math.round((client.monthly_queries / client.query_limit) * 100) < 95) {
+    db.prepare(`INSERT INTO notifications (id, target_type, target_id, title, message) VALUES (?, ?, ?, ?, ?)`)
+      .run(uuidv4(), 'client', req.user.id, 'Query Limit Warning', `You're almost at your limit: ${newCount}/${client.query_limit} queries used.`);
+  }
+
   saveDb();
 
   res.json({
@@ -106,14 +122,39 @@ router.post('/query', (req, res) => {
 // GET /api/clients/queries
 router.get('/queries', (req, res) => {
   const db = getDb();
-  const { page = 1, limit = 20 } = req.query;
+  const { page = 1, limit = 20, module_slug, status, date_from, date_to, search } = req.query;
   const offset = (page - 1) * limit;
 
-  const total = db.prepare('SELECT COUNT(*) as c FROM queries WHERE client_id = ?').get(req.user.id).c;
-  const queries = db.prepare(`SELECT q.*, m.name as module_name, m.category, m.icon
+  let where = 'q.client_id = ?';
+  const params = [req.user.id];
+
+  if (module_slug) {
+    where += ' AND m.slug = ?';
+    params.push(module_slug);
+  }
+  if (status) {
+    where += ' AND q.status = ?';
+    params.push(status);
+  }
+  if (date_from) {
+    where += ' AND q.created_at >= ?';
+    params.push(date_from);
+  }
+  if (date_to) {
+    where += ' AND q.created_at <= ?';
+    params.push(date_to + ' 23:59:59');
+  }
+  if (search) {
+    where += ' AND (m.name LIKE ? OR q.input_data LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  const countParams = [...params];
+  const total = db.prepare(`SELECT COUNT(*) as c FROM queries q JOIN ai_modules m ON q.module_id = m.id WHERE ${where}`).get(...countParams).c;
+  const queries = db.prepare(`SELECT q.*, m.name as module_name, m.category, m.icon, m.slug as module_slug
     FROM queries q JOIN ai_modules m ON q.module_id = m.id
-    WHERE q.client_id = ?
-    ORDER BY q.created_at DESC LIMIT ? OFFSET ?`).all(req.user.id, +limit, +offset);
+    WHERE ${where}
+    ORDER BY q.created_at DESC LIMIT ? OFFSET ?`).all(...params, +limit, +offset);
 
   res.json({ queries, total, page: +page, pages: Math.ceil(total / limit) });
 });
@@ -129,6 +170,24 @@ router.get('/queries/:id', (req, res) => {
   query.input_data = JSON.parse(query.input_data || '{}');
   query.result_data = JSON.parse(query.result_data || '{}');
   res.json(query);
+});
+
+// PATCH /api/clients/notifications/:id/read
+router.patch('/notifications/:id/read', (req, res) => {
+  const db = getDb();
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ? AND target_type = ? AND target_id = ?')
+    .run(req.params.id, 'client', req.user.id);
+  saveDb();
+  res.json({ success: true });
+});
+
+// POST /api/clients/notifications/read-all
+router.post('/notifications/read-all', (req, res) => {
+  const db = getDb();
+  db.prepare('UPDATE notifications SET is_read = 1 WHERE target_type = ? AND target_id = ?')
+    .run('client', req.user.id);
+  saveDb();
+  res.json({ success: true });
 });
 
 module.exports = router;
